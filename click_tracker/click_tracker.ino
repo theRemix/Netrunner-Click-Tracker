@@ -25,6 +25,7 @@ Corp Click Tracker
 #include <Wire.h>
 #include <Adafruit_LEDBackpack.h>
 #include <Fonts/Picopixel.h>
+#include <ezButton.h>
 
 Adafruit_BicolorMatrix displays[2] = { Adafruit_BicolorMatrix(), Adafruit_BicolorMatrix() };
 
@@ -531,20 +532,27 @@ static const uint8_t PROGMEM
 #define RUNNER 1
 #define CORP 2
 
+// Num Clicks
+#define RUNNER_CLICKS 4
+#define CORP_CLICKS 3
+
+// UI
+#define BTN_1 0
+#define BTN_2 1
+
+ezButton btn1(8);
+ezButton btn2(9);
+
 int currentClick = 0;
 int state = INIT;
-const int btnPin[BUTTON_COUNT] = { 9, 8 };
-int btn[BUTTON_COUNT] = {0,0};
-bool btnpressedLastVal[BUTTON_COUNT] = {false,false};
-bool btnpressed[BUTTON_COUNT] = {false,false};
-
+const int debounceDelay = 50;
 
 void setup() {
   Serial.begin(9600);
-  displays[0].begin(0x71);
-  displays[1].begin(0x70);
+  displays[0].begin(0x70);
+  displays[1].begin(0x71);
 
-  Serial.print("Ready, on 9600");
+  Serial.print("Ready, on 9600\n");
 
   for (int i = 0, l = 2; i < l; i++) {
     displays[i].setFont(&Picopixel);
@@ -552,6 +560,9 @@ void setup() {
     displays[i].setTextSize(1);
     displays[i].setRotation(3);
   }
+
+  btn1.setDebounceTime(debounceDelay);
+  btn2.setDebounceTime(debounceDelay);
 
   _init();
 }
@@ -563,191 +574,203 @@ void clearDisplays() {
   }
 }
 
-const int debounceDelay = 200;
 void handleButtons() {
+  btn1.loop();
+  btn2.loop();
 
-  for (int i = 0, l = BUTTON_COUNT; i < l; i++) {
-    btn[i] = digitalRead(btnPin[i]);
-
-    if (!btnpressed[i] && btn[i] == HIGH) {
-        /* Serial.print("PRESSED "); */
-        /* Serial.println(i); */
-        btnpressed[i] = true;
-        if (state == CORP) {
-          handleButtonCorp(i);
-        } else if (state == RUNNER) {
-          handleButtonRunner(i);
-        }
-    } else if(btnpressed[i] && btn[i] == LOW){
-        btnpressed[i] = false;
-        delay(debounceDelay);
-    }
-
-  }
-
-}
-
-void handleButtonCorp(int btnId) {
-  switch (btnId) {
-    case 0: return ;
-    case 1: return ;
+  if (btn1.isPressed()) {
+    Serial.print("btn1 ");
+    Serial.println(state);
+    clickDown();
+  } else if (btn2.isPressed()) {
+    Serial.print("btn2 ");
+    Serial.println(state);
+    clickUp();
   }
 }
 
-void handleButtonRunner(int btnId) {
-  switch (btnId) {
-    case 0: return ;
-    case 1: return ;
+void reset(int _state) {
+  state = _state;
+  currentClick = 0;
+  if (state == CORP) {
+    renderCorpClick();
+  } else if (state == RUNNER){
+    renderRunnerClick();
+  }
+}
+
+void clickUp() {
+  switch (state) {
+    case CORP:
+      if (currentClick == CORP_CLICKS) {
+        reset(RUNNER);
+        return;
+      }
+      currentClick = (currentClick + 1) % (CORP_CLICKS + 1);
+      renderCorpClick();
+      break;
+    case RUNNER:
+      if (currentClick == RUNNER_CLICKS) {
+        reset(CORP);
+        return;
+      }
+      currentClick = (currentClick + 1) % (RUNNER_CLICKS + 1);
+      renderRunnerClick();
+      break;
+  }
+}
+
+void clickDown() {
+  switch (state) {
+    case CORP:
+      if (currentClick > 0) {
+        currentClick = (currentClick - 1) % (CORP_CLICKS + 1);
+        renderCorpClick();
+      }
+      break;
+    case RUNNER:
+      if (currentClick > 0) {
+        currentClick = (currentClick - 1) % (RUNNER_CLICKS + 1);
+        renderRunnerClick();
+      }
+      break;
   }
 }
 
 void _init() {
-
+  reset(RUNNER);
 }
 
 void loop() {
-//   handleButtons();
+  handleButtons();
+}
 
+void renderRunnerClick() {
+  Serial.println("render runner click " + currentClick);
+  switch (currentClick) {
+    case 0: 
+      displays[0].clear();
+      displays[0].drawBitmap(0, 0, runner_click0_d1_green,  8, 8, LED_GREEN);
+      displays[0].drawBitmap(0, 0, runner_click0_d1_red,    8, 8, LED_RED);
+      displays[0].drawBitmap(0, 0, runner_click0_d1_yellow, 8, 8, LED_YELLOW);
+      displays[0].writeDisplay();
 
-  displays[0].clear();
-  displays[0].drawBitmap(0, 0, runner_click0_d1_green,  8, 8, LED_GREEN);
-  displays[0].drawBitmap(0, 0, runner_click0_d1_red,    8, 8, LED_RED);
-  displays[0].drawBitmap(0, 0, runner_click0_d1_yellow, 8, 8, LED_YELLOW);
-  displays[0].writeDisplay();
+      displays[1].clear();
+      displays[1].drawBitmap(0, 0, runner_click0_d2_green,  8, 8, LED_GREEN);
+      displays[1].drawBitmap(0, 0, runner_click0_d2_red,    8, 8, LED_RED);
+      displays[1].drawBitmap(0, 0, runner_click0_d2_yellow, 8, 8, LED_YELLOW);
+      displays[1].writeDisplay();
+      break;
+    case 1:
+      displays[0].clear();
+      displays[0].drawBitmap(0, 0, runner_click1_d1_green,  8, 8, LED_GREEN);
+      displays[0].drawBitmap(0, 0, runner_click1_d1_red,    8, 8, LED_RED);
+      displays[0].drawBitmap(0, 0, runner_click1_d1_yellow, 8, 8, LED_YELLOW);
+      displays[0].writeDisplay();
 
-  displays[1].clear();
-  displays[1].drawBitmap(0, 0, runner_click0_d2_green,  8, 8, LED_GREEN);
-  displays[1].drawBitmap(0, 0, runner_click0_d2_red,    8, 8, LED_RED);
-  displays[1].drawBitmap(0, 0, runner_click0_d2_yellow, 8, 8, LED_YELLOW);
-  displays[1].writeDisplay();
+      displays[1].clear();
+      displays[1].drawBitmap(0, 0, runner_click1_d2_green,  8, 8, LED_GREEN);
+      displays[1].drawBitmap(0, 0, runner_click1_d2_red,    8, 8, LED_RED);
+      displays[1].drawBitmap(0, 0, runner_click1_d2_yellow, 8, 8, LED_YELLOW);
+      displays[1].writeDisplay();
+      break;
+    case 2:
+      displays[0].clear();
+      displays[0].drawBitmap(0, 0, runner_click2_d1_green,  8, 8, LED_GREEN);
+      displays[0].drawBitmap(0, 0, runner_click2_d1_red,    8, 8, LED_RED);
+      displays[0].drawBitmap(0, 0, runner_click2_d1_yellow, 8, 8, LED_YELLOW);
+      displays[0].writeDisplay();
 
-  delay(1500);
+      displays[1].clear();
+      displays[1].drawBitmap(0, 0, runner_click2_d2_green,  8, 8, LED_GREEN);
+      displays[1].drawBitmap(0, 0, runner_click2_d2_red,    8, 8, LED_RED);
+      displays[1].drawBitmap(0, 0, runner_click2_d2_yellow, 8, 8, LED_YELLOW);
+      displays[1].writeDisplay();
+      break;
+    case 3:
+      displays[0].clear();
+      displays[0].drawBitmap(0, 0, runner_click3_d1_green,  8, 8, LED_GREEN);
+      displays[0].drawBitmap(0, 0, runner_click3_d1_red,    8, 8, LED_RED);
+      displays[0].drawBitmap(0, 0, runner_click3_d1_yellow, 8, 8, LED_YELLOW);
+      displays[0].writeDisplay();
 
-  displays[0].clear();
-  displays[0].drawBitmap(0, 0, runner_click1_d1_green,  8, 8, LED_GREEN);
-  displays[0].drawBitmap(0, 0, runner_click1_d1_red,    8, 8, LED_RED);
-  displays[0].drawBitmap(0, 0, runner_click1_d1_yellow, 8, 8, LED_YELLOW);
-  displays[0].writeDisplay();
+      displays[1].clear();
+      displays[1].drawBitmap(0, 0, runner_click3_d2_green,  8, 8, LED_GREEN);
+      displays[1].drawBitmap(0, 0, runner_click3_d2_red,    8, 8, LED_RED);
+      displays[1].drawBitmap(0, 0, runner_click3_d2_yellow, 8, 8, LED_YELLOW);
+      displays[1].writeDisplay();
+      break;
+    case 4:
+      displays[0].clear();
+      displays[0].drawBitmap(0, 0, runner_click4_d1_green,  8, 8, LED_GREEN);
+      displays[0].drawBitmap(0, 0, runner_click4_d1_red,    8, 8, LED_RED);
+      displays[0].drawBitmap(0, 0, runner_click4_d1_yellow, 8, 8, LED_YELLOW);
+      displays[0].writeDisplay();
 
-  displays[1].clear();
-  displays[1].drawBitmap(0, 0, runner_click1_d2_green,  8, 8, LED_GREEN);
-  displays[1].drawBitmap(0, 0, runner_click1_d2_red,    8, 8, LED_RED);
-  displays[1].drawBitmap(0, 0, runner_click1_d2_yellow, 8, 8, LED_YELLOW);
-  displays[1].writeDisplay();
+      displays[1].clear();
+      displays[1].drawBitmap(0, 0, runner_click4_d2_green,  8, 8, LED_GREEN);
+      displays[1].drawBitmap(0, 0, runner_click4_d2_red,    8, 8, LED_RED);
+      displays[1].drawBitmap(0, 0, runner_click4_d2_yellow, 8, 8, LED_YELLOW);
+      displays[1].writeDisplay();
+      break;
+  }
+}
 
-  delay(1500);
+void renderCorpClick() {
+  switch (currentClick) {
+    case 0: 
+      displays[0].clear();
+      displays[0].drawBitmap(0, 0, corp_click0_d1_green,  8, 8, LED_GREEN);
+      displays[0].drawBitmap(0, 0, corp_click0_d1_red,    8, 8, LED_RED);
+      displays[0].drawBitmap(0, 0, corp_click0_d1_yellow, 8, 8, LED_YELLOW);
+      displays[0].writeDisplay();
 
-  displays[0].clear();
-  displays[0].drawBitmap(0, 0, runner_click2_d1_green,  8, 8, LED_GREEN);
-  displays[0].drawBitmap(0, 0, runner_click2_d1_red,    8, 8, LED_RED);
-  displays[0].drawBitmap(0, 0, runner_click2_d1_yellow, 8, 8, LED_YELLOW);
-  displays[0].writeDisplay();
+      displays[1].clear();
+      displays[1].drawBitmap(0, 0, corp_click0_d2_green,  8, 8, LED_GREEN);
+      displays[1].drawBitmap(0, 0, corp_click0_d2_red,    8, 8, LED_RED);
+      displays[1].drawBitmap(0, 0, corp_click0_d2_yellow, 8, 8, LED_YELLOW);
+      displays[1].writeDisplay();
+      break;
+    case 1:
+      displays[0].clear();
+      displays[0].drawBitmap(0, 0, corp_click1_d1_green,  8, 8, LED_GREEN);
+      displays[0].drawBitmap(0, 0, corp_click1_d1_red,    8, 8, LED_RED);
+      displays[0].drawBitmap(0, 0, corp_click1_d1_yellow, 8, 8, LED_YELLOW);
+      displays[0].writeDisplay();
 
-  displays[1].clear();
-  displays[1].drawBitmap(0, 0, runner_click2_d2_green,  8, 8, LED_GREEN);
-  displays[1].drawBitmap(0, 0, runner_click2_d2_red,    8, 8, LED_RED);
-  displays[1].drawBitmap(0, 0, runner_click2_d2_yellow, 8, 8, LED_YELLOW);
-  displays[1].writeDisplay();
+      displays[1].clear();
+      displays[1].drawBitmap(0, 0, corp_click1_d2_green,  8, 8, LED_GREEN);
+      displays[1].drawBitmap(0, 0, corp_click1_d2_red,    8, 8, LED_RED);
+      displays[1].drawBitmap(0, 0, corp_click1_d2_yellow, 8, 8, LED_YELLOW);
+      displays[1].writeDisplay();
+      break;
+    case 2:
+      displays[0].clear();
+      displays[0].drawBitmap(0, 0, corp_click2_d1_green,  8, 8, LED_GREEN);
+      displays[0].drawBitmap(0, 0, corp_click2_d1_red,    8, 8, LED_RED);
+      displays[0].drawBitmap(0, 0, corp_click2_d1_yellow, 8, 8, LED_YELLOW);
+      displays[0].writeDisplay();
 
-  delay(1500);
+      displays[1].clear();
+      displays[1].drawBitmap(0, 0, corp_click2_d2_green,  8, 8, LED_GREEN);
+      displays[1].drawBitmap(0, 0, corp_click2_d2_red,    8, 8, LED_RED);
+      displays[1].drawBitmap(0, 0, corp_click2_d2_yellow, 8, 8, LED_YELLOW);
+      displays[1].writeDisplay();
+      break;
+    case 3:
+      displays[0].clear();
+      displays[0].drawBitmap(0, 0, corp_click3_d1_green,  8, 8, LED_GREEN);
+      displays[0].drawBitmap(0, 0, corp_click3_d1_red,    8, 8, LED_RED);
+      displays[0].drawBitmap(0, 0, corp_click3_d1_yellow, 8, 8, LED_YELLOW);
+      displays[0].writeDisplay();
 
-  displays[0].clear();
-  displays[0].drawBitmap(0, 0, runner_click3_d1_green,  8, 8, LED_GREEN);
-  displays[0].drawBitmap(0, 0, runner_click3_d1_red,    8, 8, LED_RED);
-  displays[0].drawBitmap(0, 0, runner_click3_d1_yellow, 8, 8, LED_YELLOW);
-  displays[0].writeDisplay();
-
-  displays[1].clear();
-  displays[1].drawBitmap(0, 0, runner_click3_d2_green,  8, 8, LED_GREEN);
-  displays[1].drawBitmap(0, 0, runner_click3_d2_red,    8, 8, LED_RED);
-  displays[1].drawBitmap(0, 0, runner_click3_d2_yellow, 8, 8, LED_YELLOW);
-  displays[1].writeDisplay();
-
-  delay(1500);
-
-  displays[0].clear();
-  displays[0].drawBitmap(0, 0, runner_click4_d1_green,  8, 8, LED_GREEN);
-  displays[0].drawBitmap(0, 0, runner_click4_d1_red,    8, 8, LED_RED);
-  displays[0].drawBitmap(0, 0, runner_click4_d1_yellow, 8, 8, LED_YELLOW);
-  displays[0].writeDisplay();
-
-  displays[1].clear();
-  displays[1].drawBitmap(0, 0, runner_click4_d2_green,  8, 8, LED_GREEN);
-  displays[1].drawBitmap(0, 0, runner_click4_d2_red,    8, 8, LED_RED);
-  displays[1].drawBitmap(0, 0, runner_click4_d2_yellow, 8, 8, LED_YELLOW);
-  displays[1].writeDisplay();
-
-  delay(1500);
-
-  displays[0].clear();
-  displays[1].clear();
-
-  delay(1500);
-
-  displays[0].clear();
-  displays[0].drawBitmap(0, 0, corp_click0_d1_green,  8, 8, LED_GREEN);
-  displays[0].drawBitmap(0, 0, corp_click0_d1_red,    8, 8, LED_RED);
-  displays[0].drawBitmap(0, 0, corp_click0_d1_yellow, 8, 8, LED_YELLOW);
-  displays[0].writeDisplay();
-
-
-  displays[1].clear();
-  displays[1].drawBitmap(0, 0, corp_click0_d2_green,  8, 8, LED_GREEN);
-  displays[1].drawBitmap(0, 0, corp_click0_d2_red,    8, 8, LED_RED);
-  displays[1].drawBitmap(0, 0, corp_click0_d2_yellow, 8, 8, LED_YELLOW);
-  displays[1].writeDisplay();
-
-  delay(1500);
-
-  displays[0].clear();
-  displays[0].drawBitmap(0, 0, corp_click1_d1_green,  8, 8, LED_GREEN);
-  displays[0].drawBitmap(0, 0, corp_click1_d1_red,    8, 8, LED_RED);
-  displays[0].drawBitmap(0, 0, corp_click1_d1_yellow, 8, 8, LED_YELLOW);
-  displays[0].writeDisplay();
-
-
-  displays[1].clear();
-  displays[1].drawBitmap(0, 0, corp_click1_d2_green,  8, 8, LED_GREEN);
-  displays[1].drawBitmap(0, 0, corp_click1_d2_red,    8, 8, LED_RED);
-  displays[1].drawBitmap(0, 0, corp_click1_d2_yellow, 8, 8, LED_YELLOW);
-  displays[1].writeDisplay();
-
-  delay(1500);
-
-  displays[0].clear();
-  displays[0].drawBitmap(0, 0, corp_click2_d1_green,  8, 8, LED_GREEN);
-  displays[0].drawBitmap(0, 0, corp_click2_d1_red,    8, 8, LED_RED);
-  displays[0].drawBitmap(0, 0, corp_click2_d1_yellow, 8, 8, LED_YELLOW);
-  displays[0].writeDisplay();
-
-
-  displays[1].clear();
-  displays[1].drawBitmap(0, 0, corp_click2_d2_green,  8, 8, LED_GREEN);
-  displays[1].drawBitmap(0, 0, corp_click2_d2_red,    8, 8, LED_RED);
-  displays[1].drawBitmap(0, 0, corp_click2_d2_yellow, 8, 8, LED_YELLOW);
-  displays[1].writeDisplay();
-
-  delay(1500);
-
-  displays[0].clear();
-  displays[0].drawBitmap(0, 0, corp_click3_d1_green,  8, 8, LED_GREEN);
-  displays[0].drawBitmap(0, 0, corp_click3_d1_red,    8, 8, LED_RED);
-  displays[0].drawBitmap(0, 0, corp_click3_d1_yellow, 8, 8, LED_YELLOW);
-  displays[0].writeDisplay();
-
-
-  displays[1].clear();
-  displays[1].drawBitmap(0, 0, corp_click3_d2_green,  8, 8, LED_GREEN);
-  displays[1].drawBitmap(0, 0, corp_click3_d2_red,    8, 8, LED_RED);
-  displays[1].drawBitmap(0, 0, corp_click3_d2_yellow, 8, 8, LED_YELLOW);
-  displays[1].writeDisplay();
-
-  delay(1500);
-
-  displays[0].clear();
-  displays[1].clear();
-
-  delay(1500);
+      displays[1].clear();
+      displays[1].drawBitmap(0, 0, corp_click3_d2_green,  8, 8, LED_GREEN);
+      displays[1].drawBitmap(0, 0, corp_click3_d2_red,    8, 8, LED_RED);
+      displays[1].drawBitmap(0, 0, corp_click3_d2_yellow, 8, 8, LED_YELLOW);
+      displays[1].writeDisplay();
+      break;
+  }
 
 }
 
