@@ -525,8 +525,6 @@ static const uint8_t PROGMEM
       B00000000,
       B00000000 };
 
-#define BUTTON_COUNT 2
-
 // states
 #define INIT 0
 #define RUNNER 1
@@ -537,8 +535,13 @@ static const uint8_t PROGMEM
 #define CORP_CLICKS 3
 
 // UI
+#define BUTTON_COUNT 2
 #define BTN_1 0
+#define BTN_1_PIN 8
+#define BTN_1_LED 6
 #define BTN_2 1
+#define BTN_2_PIN 9
+#define BTN_2_LED 7
 
 ezButton btn1(8);
 ezButton btn2(9);
@@ -551,6 +554,9 @@ void setup() {
   Serial.begin(9600);
   displays[0].begin(0x70);
   displays[1].begin(0x71);
+
+  pinMode(BTN_1_LED, OUTPUT);
+  pinMode(BTN_2_LED, OUTPUT);
 
   Serial.print("Ready, on 9600\n");
 
@@ -581,11 +587,18 @@ void handleButtons() {
   if (btn1.isPressed()) {
     Serial.print("btn1 ");
     Serial.println(state);
+    digitalWrite(BTN_1_LED, HIGH);
+    // digitalWrite(BTN_2_LED, LOW);
     clickDown();
   } else if (btn2.isPressed()) {
     Serial.print("btn2 ");
     Serial.println(state);
     clickUp();
+    digitalWrite(BTN_2_LED, HIGH);
+    // digitalWrite(BTN_1_LED, LOW);
+  } else {
+    // digitalWrite(BTN_1_LED, LOW);
+    // digitalWrite(BTN_2_LED, LOW);
   }
 }
 
