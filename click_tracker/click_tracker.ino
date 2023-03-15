@@ -27,6 +27,7 @@ Corp Click Tracker
 #include <Fonts/Picopixel.h>
 #include <ezButton.h>
 
+#define NUM_DISPLAYS 2
 Adafruit_BicolorMatrix displays[2] = { Adafruit_BicolorMatrix(), Adafruit_BicolorMatrix() };
 
 static const uint8_t PROGMEM
@@ -536,15 +537,13 @@ static const uint8_t PROGMEM
 
 // UI
 #define BUTTON_COUNT 2
-#define BTN_1 0
 #define BTN_1_PIN 8
 #define BTN_1_LED 6
-#define BTN_2 1
 #define BTN_2_PIN 9
 #define BTN_2_LED 7
 
-ezButton btn1(8);
-ezButton btn2(9);
+ezButton btn1(BTN_1_PIN);
+ezButton btn2(BTN_2_PIN);
 
 int currentClick = 0;
 int state = INIT;
@@ -558,9 +557,7 @@ void setup() {
   pinMode(BTN_1_LED, OUTPUT);
   pinMode(BTN_2_LED, OUTPUT);
 
-  Serial.print("Ready, on 9600\n");
-
-  for (int i = 0, l = 2; i < l; i++) {
+  for (int i = 0, l = NUM_DISPLAYS; i < l; i++) {
     displays[i].setFont(&Picopixel);
     displays[i].setTextWrap(false);
     displays[i].setTextSize(1);
@@ -571,10 +568,11 @@ void setup() {
   btn2.setDebounceTime(debounceDelay);
 
   _init();
+  Serial.print("Ready, on 9600\n");
 }
 
 void clearDisplays() {
-  for (int i = 0; i < 2; i++) {
+  for (int i = 0; i < NUM_DISPLAYS; i++) {
     displays[i].clear();
     displays[i].writeDisplay();
   }
@@ -585,20 +583,11 @@ void handleButtons() {
   btn2.loop();
 
   if (btn1.isPressed()) {
-    Serial.print("btn1 ");
-    Serial.println(state);
-    digitalWrite(BTN_1_LED, HIGH);
-    // digitalWrite(BTN_2_LED, LOW);
     clickDown();
+    animateLed(0);
   } else if (btn2.isPressed()) {
-    Serial.print("btn2 ");
-    Serial.println(state);
     clickUp();
-    digitalWrite(BTN_2_LED, HIGH);
-    // digitalWrite(BTN_1_LED, LOW);
-  } else {
-    // digitalWrite(BTN_1_LED, LOW);
-    // digitalWrite(BTN_2_LED, LOW);
+    animateLed(1);
   }
 }
 
@@ -650,12 +639,46 @@ void clickDown() {
   }
 }
 
+const int ledAnimateSpeed = 35; // ticks between flashes
+const int ledAnimationDuration = 175;
+int ledPins[2] = { BTN_1_LED, BTN_2_LED };
+int ledAnimations[2] = { 0, 0 };
+int ledAnimateState[2] = { LOW, LOW };
+
+void animateLed(int ledIdx) {
+  ledAnimations[ledIdx] = ledAnimationDuration;
+}
+
+void handleLedAnimations() {
+  for (int i = 0; i < 2; i++) {
+    if (ledAnimations[i] > 0) {
+      ledAnimations[i]--;
+      delay(1);
+      if ( (ledAnimations[i] / ledAnimateSpeed) % 2 == 0) {
+        if ( ledAnimateState[i] == LOW ) {
+          digitalWrite(ledPins[i], HIGH);
+          ledAnimateState[i] = HIGH;
+        }
+      } else {
+        if ( ledAnimateState[i] == HIGH ) {
+          digitalWrite(ledPins[i], LOW);
+          ledAnimateState[i] = LOW;
+        }
+      }
+    } else if ( ledAnimateState[i] == HIGH ) {
+        digitalWrite(ledPins[i], LOW);
+        ledAnimateState[i] = LOW;
+    }
+  }
+}
+
 void _init() {
   reset(RUNNER);
 }
 
 void loop() {
   handleButtons();
+  handleLedAnimations();
 }
 
 void renderRunnerClick() {
