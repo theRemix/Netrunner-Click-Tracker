@@ -1,5 +1,20 @@
 /*
 
+BTN1 Long Press (.5sec)
+- switch modes RUNNER|CORP
+
+MODES
+- RUNNER click tracker
+  - BTN1 undo click or switch to WAITING
+  - BTN2 spend clicks
+- CORP click tracker or switch to WAITING
+  - BTN1 undo click
+  - BTN2 spend clicks
+
+After last click, 5s delay, blank out for other player turn
+  - BTN1 go to max_clicks (undo)
+  - BTN2 reset (0 clicks)
+
 Runner Click Tracker
 
   #       #             
@@ -26,6 +41,7 @@ Corp Click Tracker
 #include <Adafruit_LEDBackpack.h>
 #include <Fonts/Picopixel.h>
 #include <ezButton.h>
+#include <math.h>
 
 #define NUM_DISPLAYS 2
 Adafruit_BicolorMatrix displays[2] = { Adafruit_BicolorMatrix(), Adafruit_BicolorMatrix() };
@@ -530,6 +546,7 @@ static const uint8_t PROGMEM
 #define INIT 0
 #define RUNNER 1
 #define CORP 2
+#define WAITING 3
 
 // Num Clicks
 #define RUNNER_CLICKS 4
@@ -578,20 +595,32 @@ void clearDisplays() {
   }
 }
 
+const int switchModeHoldTime = 500; // ms
+unsigned long switchModeTimer = INFINITY;
+
 void handleButtons() {
   btn1.loop();
   btn2.loop();
 
   if (btn1.isPressed()) {
-    clickDown();
-    animateLed(0);
+    switchModeTimer = millis()+switchModeHoldTime;
+    lastClickClearTimer();
+  } else if (btn1.isReleased()) {
+    if (millis() >= switchModeTimer) {
+      cycleModes();
+    } else {
+      clickDown();
+      animateLed(0);
+    }
+    switchModeTimer = INFINITY;
   } else if (btn2.isPressed()) {
+    lastClickClearTimer();
     clickUp();
     animateLed(1);
   }
 }
 
-void reset(int _state) {
+void setState(int _state) {
   state = _state;
   currentClick = 0;
   if (state == CORP) {
@@ -601,23 +630,41 @@ void reset(int _state) {
   }
 }
 
+const int lastClickDelay = 5000; // ms
+unsigned long lastClickDelayMs = INFINITY;
+
+// delay, then blank out
+void lastClickReset() {
+  lastClickDelayMs = millis()+lastClickDelay;
+}
+void lastClickClearTimer() {
+  lastClickDelayMs = INFINITY;
+}
+void lastClickResetTimeout() {
+  displays[0].clear();
+  displays[0].writeDisplay();
+  displays[1].clear();
+  displays[1].writeDisplay();
+  currentClick = 0;
+}
+
 void clickUp() {
   switch (state) {
     case CORP:
-      if (currentClick == CORP_CLICKS) {
-        reset(RUNNER);
-        return;
-      }
       currentClick = (currentClick + 1) % (CORP_CLICKS + 1);
       renderCorpClick();
-      break;
-    case RUNNER:
-      if (currentClick == RUNNER_CLICKS) {
-        reset(CORP);
+      if (currentClick == CORP_CLICKS) {
+        lastClickReset();
         return;
       }
+      break;
+    case RUNNER:
       currentClick = (currentClick + 1) % (RUNNER_CLICKS + 1);
       renderRunnerClick();
+      if (currentClick == RUNNER_CLICKS) {
+        lastClickReset();
+        return;
+      }
       break;
   }
 }
@@ -627,16 +674,29 @@ void clickDown() {
     case CORP:
       if (currentClick > 0) {
         currentClick = (currentClick - 1) % (CORP_CLICKS + 1);
-        renderCorpClick();
       }
+      renderCorpClick();
       break;
     case RUNNER:
       if (currentClick > 0) {
         currentClick = (currentClick - 1) % (RUNNER_CLICKS + 1);
-        renderRunnerClick();
       }
+      renderRunnerClick();
       break;
   }
+}
+
+void cycleModes() {
+  switch (state) {
+    case CORP:
+      setState(RUNNER);
+      break;
+    case RUNNER:
+      setState(CORP);
+      break;
+  }
+  animateLed(0);
+  animateLed(1);
 }
 
 const int ledAnimateSpeed = 35; // ticks between flashes
@@ -672,17 +732,27 @@ void handleLedAnimations() {
   }
 }
 
+void handleTimers() {
+  unsigned long now = millis();
+
+  if (now >= lastClickDelayMs) {
+    lastClickResetTimeout();
+    lastClickDelayMs = INFINITY;
+  }
+
+}
+
 void _init() {
-  reset(RUNNER);
+  setState(RUNNER);
 }
 
 void loop() {
   handleButtons();
   handleLedAnimations();
+  handleTimers();
 }
 
 void renderRunnerClick() {
-  Serial.println("render runner click " + currentClick);
   switch (currentClick) {
     case 0: 
       displays[0].clear();
