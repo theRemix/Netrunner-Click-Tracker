@@ -733,13 +733,14 @@ void handleLedAnimations() {
 }
 
 void handleTimers() {
-  unsigned long now = millis();
+  if (lastClickDelayMs != INFINITY) {
+    unsigned long now = millis();
 
-  if (now >= lastClickDelayMs) {
-    lastClickResetTimeout();
-    lastClickDelayMs = INFINITY;
+    if (now >= lastClickDelayMs) {
+      lastClickResetTimeout();
+      lastClickDelayMs = INFINITY;
+    }
   }
-
 }
 
 void _init() {
