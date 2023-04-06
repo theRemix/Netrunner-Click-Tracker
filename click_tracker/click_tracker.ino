@@ -41,7 +41,6 @@ Corp Click Tracker
 #include <Adafruit_LEDBackpack.h>
 #include <Fonts/Picopixel.h>
 #include <ezButton.h>
-#include <math.h>
 
 #define NUM_DISPLAYS 2
 Adafruit_BicolorMatrix displays[2] = { Adafruit_BicolorMatrix(), Adafruit_BicolorMatrix() };
@@ -566,8 +565,21 @@ int currentClick = 0;
 int state = INIT;
 const int debounceDelay = 50;
 
+unsigned long PSEUDO_INFINITY;
+
+const unsigned long switchModeHoldTime = 500; // ms
+unsigned long switchModeTimer;
+
+const int lastClickDelay = 5000; // ms
+unsigned long lastClickDelayMs;
+
 void setup() {
   Serial.begin(9600);
+
+  PSEUDO_INFINITY = millis() + 3600000; // 10 hrs
+  switchModeTimer = PSEUDO_INFINITY;
+  lastClickDelayMs = PSEUDO_INFINITY;
+
   displays[0].begin(0x70);
   displays[1].begin(0x71);
 
@@ -595,9 +607,6 @@ void clearDisplays() {
   }
 }
 
-const int switchModeHoldTime = 500; // ms
-unsigned long switchModeTimer = INFINITY;
-
 void handleButtons() {
   btn1.loop();
   btn2.loop();
@@ -612,7 +621,7 @@ void handleButtons() {
       clickDown();
       animateLed(0);
     }
-    switchModeTimer = INFINITY;
+    switchModeTimer = PSEUDO_INFINITY;
   } else if (btn2.isPressed()) {
     lastClickClearTimer();
     clickUp();
@@ -630,15 +639,12 @@ void setState(int _state) {
   }
 }
 
-const int lastClickDelay = 5000; // ms
-unsigned long lastClickDelayMs = INFINITY;
-
 // delay, then blank out
 void lastClickReset() {
   lastClickDelayMs = millis()+lastClickDelay;
 }
 void lastClickClearTimer() {
-  lastClickDelayMs = INFINITY;
+  lastClickDelayMs = PSEUDO_INFINITY;
 }
 void lastClickResetTimeout() {
   displays[0].clear();
@@ -733,12 +739,12 @@ void handleLedAnimations() {
 }
 
 void handleTimers() {
-  if (lastClickDelayMs != INFINITY) {
+  if (lastClickDelayMs != PSEUDO_INFINITY) {
     unsigned long now = millis();
 
     if (now >= lastClickDelayMs) {
       lastClickResetTimeout();
-      lastClickDelayMs = INFINITY;
+      lastClickDelayMs = PSEUDO_INFINITY;
     }
   }
 }
